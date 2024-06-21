@@ -1,6 +1,7 @@
 class Hand:
     def __init__(self, cards):
         self.cards = cards
+        self.insured = False
         self.status = "P" 
         # P: Playing, N: Natural
         # NW: Natural Win, NT: Natural Tie, 

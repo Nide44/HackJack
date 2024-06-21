@@ -11,6 +11,7 @@ class Game:
         self.house = Player("house")
         self.mode = mode
         self.current_bets = {player.name: 0 for player in self.players}
+        self.current_insurances = {player.name: 0 for player in self.players}
 
         self.place_bets_mapping = {
             "random": self.place_bets_random
@@ -23,6 +24,12 @@ class Game:
         }
         self.decide_double_down_mapping = {
             "random": self.decide_double_down_random
+        }
+        self.place_insurance_mapping = {
+            "random": self.place_insurance_random
+        }
+        self.decide_insurance_mapping = {
+            "random": self.decide_insurance_random
         }
 
     def grab_new_deck(self):
@@ -38,7 +45,7 @@ class Game:
 
     def place_bets_random(self):
         for player in self.players:
-            bet = round(random.uniform(2.0, min(500.0, player.stash) * 2)) / 2
+            bet = round(random.uniform(2.0, min(500.0, player.stash)) * 2) / 2
             self.current_bets[player.name] = bet
             player.stash -= bet
 
@@ -57,8 +64,19 @@ class Game:
         # Second card for the house
         self.house.hands[0].cards.append(self.deck.deal_card(False))
 
+    def place_insurance_random(self, player):
+        return round(random.uniform(0.0, min(self.current_bets[player.name]/2, player.stash)) * 2.0) / 2
+
     def check_natural_house(self):
         if self.house.hands[0].cards[0].play_value in [10, 11]:
+            if self.house.hands[0].cards[0].play_value == 11:
+                # Opportunity for players to get insurance
+                for player in self.players:
+                    insurance = self.decide_insurance()
+                    if insurance:
+                        player.hands[0].insured = True
+                        self.current_insurances[player.name] = self.place_insurance_mapping[self.mode](player)
+
             if self.house.hands[0].calculate_total_value() == 21:
                 self.house.hands[0].status = "N"
                 return True
@@ -83,6 +101,8 @@ class Game:
                 player.stash += self.current_bets[player.name] * 2.5
             elif player.hands[0].status == "NT":
                 player.stash += self.current_bets[player.name]
+            elif player.hands[0].insured and self.house.hands[0].status == "N":
+                player.stash += self.current_insurances[player.name] * 2.0
     
     def decide_hit_stand(self):
         return self.decide_hit_stand_mapping[self.mode]()
@@ -101,6 +121,12 @@ class Game:
     
     def decide_double_down(self):
         return self.decide_double_down_mapping[self.mode]()
+    
+    def decide_insurance_random(self):
+        return True if random.random() > 0.5 else False
+    
+    def decide_insurance(self):
+        return self.decide_insurance_mapping[self.mode]()
 
     def perform_play(self):
         # Player phase
@@ -198,6 +224,7 @@ class Game:
     def reset_game(self):
         self.exclude_bankrupt_players()
         self.current_bets = {player.name: 0 for player in self.players}
+        self.current_insurances = {player.name: 0 for player in self.players}
         for player in self.players:
             player.hands = []
         self.house.hands = []
