@@ -21,6 +21,9 @@ class Game:
         self.decide_split_mapping = {
             "random": self.decide_split_random
         }
+        self.decide_double_down_mapping = {
+            "random": self.decide_double_down_random
+        }
 
     def grab_new_deck(self):
         self.deck = Deck()
@@ -92,15 +95,33 @@ class Game:
     
     def decide_split(self):
         return self.decide_split_mapping[self.mode]()
+    
+    def decide_double_down_random(self):
+        return True if random.random() > 0.5 else False
+    
+    def decide_double_down(self):
+        return self.decide_double_down_mapping[self.mode]()
 
     def perform_play(self):
         # Player phase
         all_players_bust = True
         for player in self.players:
+            # Option to double down
+            doubled_down = False
+            if player.hands[0].calculate_total_value() in [9, 10, 11] and player.stash > self.current_bets[player.name]:
+                doubled_down = self.decide_double_down()
+                if doubled_down:
+                    player.stash -= self.current_bets[player.name]
+                    self.current_bets[player.name] *= 2
+                    player.hands[0].cards.append(self.deck.deal_card(True))
+                    if player.hands[0].calculate_total_value() > 21:
+                        player.hands[0].try_to_switch_soft_hand()
+                    continue
+
             # Option to split pairs
             if player.hands[0].cards[0].value == player.hands[0].cards[1].value:
                 split = self.decide_split()
-                if split:
+                if split and not doubled_down and player.stash > self.current_bets[player.name]:
                     player.hands.append(Hand([player.hands[0].cards[1]]))
                     del player.hands[0].cards[1]
                     player.stash -= self.current_bets[player.name]
@@ -110,11 +131,7 @@ class Game:
                         for hand in player.hands:
                             hand.cards.append(self.deck.deal_card(True))
                             if hand.calculate_total_value() > 21:
-                                if not hand.try_to_switch_soft_hand():
-                                    hand.status = "L"
-                                    break
-                            elif hand.calculate_total_value() == 21:
-                                hand.status = "RW"
+                                hand.try_to_switch_soft_hand()
                         continue
                 else:
                     if player.hands[0].cards[0].value == "A":
