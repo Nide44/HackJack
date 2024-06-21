@@ -1,3 +1,7 @@
+import logging
+
 NB_DECKS = 6
 NB_PLAYERS = 3
 DEF_STASH = 10000
+
+LOGGING_LEVEL = logging.INFO
