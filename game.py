@@ -18,6 +18,9 @@ class Game:
         self.decide_hit_stand_mapping = {
             "random": self.decide_hit_stand_random
         }
+        self.decide_split_mapping = {
+            "random": self.decide_split_random
+        }
 
     def grab_new_deck(self):
         self.deck = Deck()
@@ -83,11 +86,41 @@ class Game:
     
     def decide_hit_stand_random(self):
         return "H" if random.random() > 0.5 else "S"
+    
+    def decide_split_random(self):
+        return True if random.random() > 0.5 else False
+    
+    def decide_split(self):
+        return self.decide_split_mapping[self.mode]()
 
     def perform_play(self):
         # Player phase
         all_players_bust = True
         for player in self.players:
+            # Option to split pairs
+            if player.hands[0].cards[0].value == player.hands[0].cards[1].value:
+                split = self.decide_split()
+                if split:
+                    player.hands.append(Hand([player.hands[0].cards[1]]))
+                    del player.hands[0].cards[1]
+                    player.stash -= self.current_bets[player.name]
+
+                    # Special ace case
+                    if player.hands[0].cards[0].value == "A":
+                        for hand in player.hands:
+                            hand.cards.append(self.deck.deal_card(True))
+                            if hand.calculate_total_value() > 21:
+                                if not hand.try_to_switch_soft_hand():
+                                    hand.status = "L"
+                                    break
+                            elif hand.calculate_total_value() == 21:
+                                hand.status = "RW"
+                        continue
+                else:
+                    if player.hands[0].cards[0].value == "A":
+                        player.hands[0].try_to_switch_soft_hand()
+
+            # Regular play
             for hand in player.hands:
                 if hand.status == "P":
                     hit_stand = self.decide_hit_stand()
